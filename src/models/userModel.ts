@@ -15,9 +15,9 @@ export const updateUserBalance = async (userId: number, amount: number): Promise
 
         const result = await client.query(
             `UPDATE users 
-       SET balance = balance + $1 
-       WHERE id = $2 
-       RETURNING *`,
+           SET balance = balance + $1 
+           WHERE id = $2 
+           RETURNING *`,
             [amount, userId]
         );
 

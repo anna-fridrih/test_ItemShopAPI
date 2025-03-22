@@ -1,73 +1,90 @@
 import { logger } from '@/utils/logger';
 import { pool } from '@/config/db';
+import { PurchaseResult } from '@/types/purchase'
+import {UserProductData} from "@/types/product";
+import {validateNumeric, checkEntityExists} from '@/utils/helper'
 
-export const buyProduct = async (userId: number, productId: number) => {
+
+export const buyProduct = async (
+    userId: number,
+    productId: number
+): Promise<PurchaseResult> => {
     const client = await pool.connect();
+
     try {
         await client.query('BEGIN');
+        await client.query('SAVEPOINT purchase_transaction');
 
-        const { rows: userRows } = await client.query(
-            `SELECT u.balance, p.price 
-             FROM users u, products p 
-             WHERE u.id = $1 AND p.id = $2 
-             FOR UPDATE OF u, p`,
-            [userId, productId]
-        );
+        // Проверка существования сущностей
+        const [userExists, productExists] = await Promise.all([
+            checkEntityExists(client, 'users', userId),
+            checkEntityExists(client, 'products', productId)
+        ]);
 
-        if (userRows.length === 0) {
-            logger.error({ userId, productId }, 'User or product not found');
-            throw new Error('User or product not found');
+        if (!userExists || !productExists) {
+            const errorMessage = !userExists ? 'User not found' : 'Product not found';
+            logger.error({ userId, productId }, errorMessage);
+            throw new Error(errorMessage);
         }
 
-        const { balance, price } = userRows[0];
+        const userQuery = await client.query<UserProductData>(
+            `SELECT balance FROM users 
+             WHERE id = $1 FOR UPDATE`,
+            [userId]
+        );
 
-        const numericBalance = Number(balance);
-        const numericPrice = Number(price);
+        const productQuery = await client.query<UserProductData>(
+            `SELECT price FROM products 
+             WHERE id = $1 FOR UPDATE`,
+            [productId]
+        );
 
-        if (isNaN(numericBalance)) throw new Error('Invalid balance format');
-        if (isNaN(numericPrice)) throw new Error('Invalid price format');
+        const balance = validateNumeric(userQuery.rows[0]?.balance, 'balance');
+        const price = validateNumeric(productQuery.rows[0]?.price, 'price');
 
-        if (numericBalance < numericPrice) {
-            logger.error({
-                userId,
-                balance: numericBalance,
-                price: numericPrice
-            }, 'Insufficient funds');
+        if (balance < price) {
+            logger.error({ userId, balance, price }, 'Insufficient funds');
             throw new Error('Insufficient funds');
         }
 
-        const newBalance = numericBalance - numericPrice;
+        const newBalance = Number((balance - price).toFixed(2));
 
         await client.query(
-            'UPDATE users SET balance = $1 WHERE id = $2',
+            `UPDATE users 
+             SET balance = $1 
+             WHERE id = $2`,
             [newBalance, userId]
         );
 
         await client.query(
-            'INSERT INTO purchases (user_id, product_id, amount) VALUES ($1, $2, $3)',
-            [userId, productId, numericPrice]
+            `INSERT INTO purchases 
+                (user_id, product_id, amount) 
+             VALUES ($1, $2, $3)`,
+            [userId, productId, price]
         );
 
+        await client.query('RELEASE SAVEPOINT purchase_transaction');
         await client.query('COMMIT');
 
-        logger.info({
-            userId,
-            productId,
-            newBalance
-        }, 'Purchase completed successfully');
+        logger.info(
+            { userId, productId, newBalance },
+            'Purchase completed successfully'
+        );
 
-        return {
-            success: true,
-            newBalance: Number(newBalance.toFixed(2))
-        };
+        return { success: true, newBalance };
     } catch (error) {
-        await client.query('ROLLBACK');
-        logger.error({
-            userId,
-            productId,
-            error: error instanceof Error ? error.message : 'Unknown error'
-        }, 'Transaction failed');
-        throw error;
+        await client.query('ROLLBACK TO SAVEPOINT purchase_transaction');
+
+        const errorMessage = error instanceof Error
+            ? error.message
+            : 'Unknown transaction error';
+
+        logger.error(
+            { userId, productId, error: errorMessage },
+            'Purchase transaction failed'
+        );
+
+        throw new Error(`Failed to process purchase: ${errorMessage}`);
     } finally {
         client.release();
     }

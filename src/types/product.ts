@@ -4,3 +4,7 @@ export interface Product {
     price: number;
     isTradable: boolean;
 }
+export interface UserProductData {
+    balance: number;
+    price: number;
+}
