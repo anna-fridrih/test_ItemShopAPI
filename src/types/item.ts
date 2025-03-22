@@ -13,3 +13,9 @@ export interface ProcessedItem {
         non_tradable: number;
     };
 }
+
+export interface SaleItem {
+    tradable: boolean;
+    price: number;
+    condition?: string;
+}

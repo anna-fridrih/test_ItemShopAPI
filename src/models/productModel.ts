@@ -1,5 +1,5 @@
 import { Pool } from 'pg';
-import { Product } from '../types/product';
+import { Product } from '@/types/product';
 
 const pool = new Pool();
 

@@ -1,5 +1,5 @@
 import { FastifyPluginAsync } from 'fastify';
-import { fetchItems } from '../controllers/itemsController';
+import { fetchItems } from '@/controllers/itemsController';
 
 const itemsRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.get('/items', fetchItems);

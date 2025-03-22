@@ -1,5 +1,5 @@
 import axios from 'axios';
-import {redisClient} from '../config/redis';
+import {redisClient} from '@/config/redis';
 
 export const getItems = async () => {
     const cacheKey = 'items:min_prices';

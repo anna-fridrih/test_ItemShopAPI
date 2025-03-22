@@ -1,7 +1,12 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { redisClient } from '../config/redis';
-import { logger } from '../utils/logger';
-import { Item, ProcessedItem } from '../types/item';
+import { redisClient } from '@/config/redis';
+import { logger } from '@/utils/logger';
+import { Item, ProcessedItem, SaleItem } from '@/types/item';
+import SkinportParams from "@/types/skiport_params";
+
+
+const getCacheKey = (app_id: string = '730', currency: string = 'USD') =>
+    `skinport:items:${app_id}:${currency}`;
 
 const API_URL = process.env.SKINPORT_API_URL || 'https://api.skinport.com/v1/items?app_id=730&currency=USD';
 const MAX_RETRIES = parseInt(process.env.SKINPORT_API_RETRIES || '3', 10);
@@ -12,7 +17,7 @@ const fetchWithRetry = async (url: string, retries = MAX_RETRIES, delay = RETRY_
         try {
             const response = await fetch(url, {
                 headers: {
-                    'User-Agent': 'SkinportItemsFetcher/1.0 (+https://github.com/your-repo)'
+                    'User-Agent': 'SkinportItemsFetcher/1.0'
                 }
             });
 
@@ -32,9 +37,14 @@ const fetchWithRetry = async (url: string, retries = MAX_RETRIES, delay = RETRY_
     throw new Error('Max retries exceeded');
 };
 
-export const fetchItems = async (req: FastifyRequest, reply: FastifyReply) => {
-    const cacheKey = 'skinport:items';
-    const fallbackCacheKey = 'skinport:items:fallback';
+export const fetchItems =async (
+    req: FastifyRequest<{ Querystring: SkinportParams }>,
+    reply: FastifyReply
+) => {
+    const { app_id = '730', currency = 'USD' } = req.query;
+    const cacheKey = getCacheKey(app_id, currency);
+    const fallbackCacheKey = `${cacheKey}:fallback`;
+
 
     try {
         const cachedData = await redisClient.get(cacheKey);
@@ -78,28 +88,58 @@ export const fetchItems = async (req: FastifyRequest, reply: FastifyReply) => {
     }
 };
 
+// const processItems = (items: Item[]): ProcessedItem[] => {
+//     return items.map(item => {
+//         const sales = item.sales || [];
+//
+//         const tradable = sales
+//             .filter(s => s?.tradable)
+//             .sort((a, b) => (a?.price || 0) - (b?.price || 0));
+//
+//         const nonTradable = sales
+//             .filter(s => !s?.tradable)
+//             .sort((a, b) => (a?.price || 0) - (b?.price || 0));
+//
+//         return {
+//             name: item.market_hash_name || 'Unknown Item',
+//             min_prices: {
+//                 tradable: tradable[0]?.price || 0,
+//                 non_tradable: nonTradable[0]?.price || 0
+//             }
+//         };
+//     });
+// };
 const processItems = (items: Item[]): ProcessedItem[] => {
     return items.map(item => {
-        const sales = item.sales || [];
+        // Фильтруем и валидируем структуру sales
+        const validSales = (item.sales || [])
+            .filter((s): s is SaleItem =>
+                typeof s === 'object' &&
+                'tradable' in s &&
+                'price' in s
+            );
 
-        const tradable = sales
-            .filter(s => s?.tradable)
-            .sort((a, b) => (a?.price || 0) - (b?.price || 0));
+        // Обработка tradable цен
+        const tradablePrices = validSales
+            .filter(s => s.tradable)
+            .map(s => s.price)
+            .sort((a, b) => a - b);
 
-        const nonTradable = sales
-            .filter(s => !s?.tradable)
-            .sort((a, b) => (a?.price || 0) - (b?.price || 0));
+        // Обработка non-tradable цен
+        const nonTradablePrices = validSales
+            .filter(s => !s.tradable)
+            .map(s => s.price)
+            .sort((a, b) => a - b);
 
         return {
             name: item.market_hash_name || 'Unknown Item',
             min_prices: {
-                tradable: tradable[0]?.price || 0,
-                non_tradable: nonTradable[0]?.price || 0
+                tradable: tradablePrices[0] ?? null, // Используем null вместо 0
+                non_tradable: nonTradablePrices[0] ?? null
             }
         };
     });
 };
-
 export const startCacheUpdater = () => {
     setInterval(async () => {
         try {

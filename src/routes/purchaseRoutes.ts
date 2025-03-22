@@ -1,5 +1,5 @@
 import { FastifyPluginAsyncTypebox } from '@fastify/type-provider-typebox';
-import { makePurchase } from '../controllers/purchaseController';
+import { makePurchase } from '@/controllers/purchaseController';
 
 const purchaseSchema = {
     body: {
