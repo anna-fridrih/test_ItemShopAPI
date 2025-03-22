@@ -10,8 +10,8 @@ export const createPurchase = async (
 ): Promise<Purchase> => {
     const result = await pool.query(
         `INSERT INTO purchases(user_id, product_id, amount)
-     VALUES($1, $2, $3)
-     RETURNING *`,
+         VALUES($1, $2, $3)
+         RETURNING *`,
         [userId, productId, amount]
     );
     return result.rows[0];
