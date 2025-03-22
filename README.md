@@ -98,11 +98,6 @@ npm run build
 npm start
 ```
 
-### Тестирование
-```bash
-npm test
-```
-
 ## API Endpoints
 
 ### GET /items
@@ -195,9 +190,6 @@ curl -X POST http://localhost:3000/purchases \
 ```
 
 ## Структура базы данных
-
-![Диаграмма БД](https://via.placeholder.com/600x400?text=Database+Schema+Diagram)
-
 ```sql
 CREATE TABLE users (
   id SERIAL PRIMARY KEY,
