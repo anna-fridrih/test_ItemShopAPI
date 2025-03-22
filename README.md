@@ -45,19 +45,19 @@ npm install
 ```
 
 ### 4. Инициализация БД
-```sql
--- Создание базы данных
-CREATE DATABASE test_task_db;
+1. Создайте базу данных и пользователя:
+```bash
+createdb test_task_db
+createuser test_user
+psql -c "ALTER USER test_user WITH PASSWORD '1234';"
+psql -c "GRANT ALL PRIVILEGES ON DATABASE test_task_db TO test_user;"
+```
 
--- Создание пользователя
-CREATE USER test_user WITH PASSWORD '1234';
-
--- Назначение прав
-GRANT ALL PRIVILEGES ON DATABASE test_task_db TO test_user;
-
--- Выполнить после запуска приложения:
-\c test_task_db
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+2. Примените миграции:
+```bash
+psql -d test_task_db -U test_user -a -f migrations/001_create_users_table.sql
+psql -d test_task_db -U test_user -a -f migrations/002_create_products_table.sql
+psql -d test_task_db -U test_user -a -f migrations/003_create_purchases_table.sql
 ```
 
 ## Конфигурация (файл .env)
@@ -138,34 +138,6 @@ curl http://localhost:3000/items
 }
 ```
 
-**Успешный ответ (200):**
-```json
-{
-  "success": true,
-  "newBalance": "950.50"
-}
-```
-
-**Ошибки:**
-```json
-{
-  "error": "Not Found",
-  "message": "User not found"
-}
-```
-```json
-{
-  "error": "Bad Request",
-  "message": "Invalid request body"
-}
-```
-```json
-{
-  "error": "Forbidden",
-  "message": "Insufficient funds"
-}
-```
-
 ## Примеры запросов
 
 ### Успешная покупка
@@ -175,42 +147,21 @@ curl -X POST http://localhost:3000/purchases \
   -d '{"userId": 1, "productId": 1}'
 ```
 
-### Недостаточный баланс
-```bash
-curl -X POST http://localhost:3000/purchases \
-  -H "Content-Type: application/json" \
-  -d '{"userId": 1, "productId": 3}'
-```
-
-### Невалидные данные
-```bash
-curl -X POST http://localhost:3000/purchases \
-  -H "Content-Type: application/json" \
-  -d '{"userId": "invalid", "product": 1}'
-```
-
 ## Структура базы данных
-```sql
-CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
-  username VARCHAR(50) UNIQUE NOT NULL,
-  balance NUMERIC(10,2) NOT NULL DEFAULT 0.00 CHECK (balance >= 0),
-  created_at TIMESTAMP DEFAULT NOW()
-);
 
-CREATE TABLE products (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(100) NOT NULL,
-  price NUMERIC(10,2) NOT NULL CHECK (price > 0)
-);
+Схема БД задается через миграции:
+```
+migrations/
+├── 001_create_users_table.sql       # Пользователи
+├── 002_create_products_table.sql    # Товары
+└── 003_create_purchases_table.sql   # История покупок
+```
 
-CREATE TABLE purchases (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER REFERENCES users(id),
-  product_id INTEGER REFERENCES products(id),
-  amount NUMERIC(10,2) NOT NULL,
-  purchase_date TIMESTAMP DEFAULT NOW()
-);
+Для просмотра структуры выполните:
+```bash
+psql -d test_task_db -c "\d users"
+psql -d test_task_db -c "\d products"
+psql -d test_task_db -c "\d purchases"
 ```
 
 ## Логирование
