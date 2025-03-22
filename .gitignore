@@ -1,0 +1,40 @@
+# Node.js dependencies
+/node_modules/
+
+# Log files
+*.log
+logs/
+
+# Environment variables
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build files
+/dist/
+build/
+
+# IDE/editor files
+.vscode/
+.idea/
+
+# TypeScript build output
+*.tsbuildinfo
+
+# NPM package lock
+package-lock.json
+yarn.lock
+
+# Docker files
+.docker/
+docker-compose.yml
+
+# Coverage directory
+/coverage/
+__tests__
+# Miscellaneous
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
