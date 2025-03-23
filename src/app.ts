@@ -1,12 +1,12 @@
 import Fastify from 'fastify';
 import itemsRoutes from './routes/itemsRoutes';
 import purchasesRoute from './routes/purchaseRoutes';
-import { logger } from './utils/logger';
+import { logger } from './config/logger';
 import {redisClient} from "src/config/redis";
 
 export const buildApp = () => {
     const fastify = Fastify({
-        logger: logger, // Используем кастомный логгер
+        logger: logger,
         disableRequestLogging: process.env.NODE_ENV === 'production'
     });
 

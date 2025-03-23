@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { redisClient } from '@/config/redis';
-import { logger } from '@/utils/logger';
+import { logger } from '@/config/logger';
 import { Item, ProcessedItem, SaleItem } from '@/types/item';
 import SkinportParams from "@/types/skiport_params";
 
@@ -70,7 +70,6 @@ export const fetchItems =async (
     } catch (error) {
         logger.error('Failed to fetch items:', error);
 
-        // Пытаемся вернуть старые данные из резервного кэша
         const fallbackData = await redisClient.get(fallbackCacheKey);
         if (fallbackData) {
             logger.warn('Using fallback cache');
@@ -88,30 +87,8 @@ export const fetchItems =async (
     }
 };
 
-// const processItems = (items: Item[]): ProcessedItem[] => {
-//     return items.map(item => {
-//         const sales = item.sales || [];
-//
-//         const tradable = sales
-//             .filter(s => s?.tradable)
-//             .sort((a, b) => (a?.price || 0) - (b?.price || 0));
-//
-//         const nonTradable = sales
-//             .filter(s => !s?.tradable)
-//             .sort((a, b) => (a?.price || 0) - (b?.price || 0));
-//
-//         return {
-//             name: item.market_hash_name || 'Unknown Item',
-//             min_prices: {
-//                 tradable: tradable[0]?.price || 0,
-//                 non_tradable: nonTradable[0]?.price || 0
-//             }
-//         };
-//     });
-// };
 const processItems = (items: Item[]): ProcessedItem[] => {
     return items.map(item => {
-        // Фильтруем и валидируем структуру sales
         const validSales = (item.sales || [])
             .filter((s): s is SaleItem =>
                 typeof s === 'object' &&
@@ -119,13 +96,11 @@ const processItems = (items: Item[]): ProcessedItem[] => {
                 'price' in s
             );
 
-        // Обработка tradable цен
         const tradablePrices = validSales
             .filter(s => s.tradable)
             .map(s => s.price)
             .sort((a, b) => a - b);
 
-        // Обработка non-tradable цен
         const nonTradablePrices = validSales
             .filter(s => !s.tradable)
             .map(s => s.price)
@@ -134,7 +109,7 @@ const processItems = (items: Item[]): ProcessedItem[] => {
         return {
             name: item.market_hash_name || 'Unknown Item',
             min_prices: {
-                tradable: tradablePrices[0] ?? null, // Используем null вместо 0
+                tradable: tradablePrices[0] ?? null,
                 non_tradable: nonTradablePrices[0] ?? null
             }
         };

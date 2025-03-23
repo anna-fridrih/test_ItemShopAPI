@@ -1,4 +1,4 @@
-import { logger } from '@/utils/logger';
+import { logger } from '@/config/logger';
 import { pool } from '@/config/db';
 import { PurchaseResult } from '@/types/purchase'
 import {UserProductData} from "@/types/product";
@@ -15,7 +15,6 @@ export const buyProduct = async (
         await client.query('BEGIN');
         await client.query('SAVEPOINT purchase_transaction');
 
-        // Проверка существования сущностей
         const [userExists, productExists] = await Promise.all([
             checkEntityExists(client, 'users', userId),
             checkEntityExists(client, 'products', productId)

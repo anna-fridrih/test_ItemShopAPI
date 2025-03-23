@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { buyProduct } from '@/services/purchaseService';
-import { logger } from '@/utils/logger';
+import { logger } from '@/config/logger';
 
 interface PurchaseBody {
     userId: number;

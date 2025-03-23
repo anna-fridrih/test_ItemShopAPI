@@ -9,7 +9,7 @@ export const validateNumeric = (value: unknown, fieldName: string): number => {
 };
 
 export const checkEntityExists = async (
-    client: PoolClient, // Исправлен тип с any на PoolClient
+    client: PoolClient,
     table: string,
     id: number
 ): Promise<boolean> => {
@@ -17,5 +17,5 @@ export const checkEntityExists = async (
         `SELECT 1 FROM ${table} WHERE id = $1`,
         [id]
     );
-    return (rowCount ?? 0) > 0; // Исправлено result.rowCount на rowCount
+    return (rowCount ?? 0) > 0;
 };
